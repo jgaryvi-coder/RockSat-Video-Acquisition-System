@@ -2,7 +2,7 @@
 from __future__ import annotations
 """
 record.py — Pi Zero 2 W + Camera Module 3
-RockSat Flight Script: Includes countdown, run-counter (RTC fix), and persistent logging.
+RockSat RAW Dump: Captures a raw H.264 stream to prevent SD card bottlenecks.
 """
 
 import os
@@ -18,13 +18,12 @@ from datetime import datetime
 FPS = 30
 WIDTH = 1920
 HEIGHT = 1080
-QUALITY = 60
-REC_DURATION_MS = 320000    # Recording length in milliseconds (e.g., 30000 = 30 seconds)
+REC_DURATION_MS = 320000    # Recording length in milliseconds (320000 = 5m 20s)
 START_DELAY_SEC = 120       # Countdown delay in seconds before recording starts
-SHUTDOWN_AT_END = False    # Set to True to turn off the Pi automatically after running
+SHUTDOWN_AT_END = False     # Set to True to turn off the Pi automatically after running
 
 OUTDIR = Path.home() / "Desktop/Videos"
-MIN_FREE_GB = 1.0          # Safety check to prevent SD card corruption
+MIN_FREE_GB = 1.0           # Safety check to prevent SD card corruption
 LOG_FILE = OUTDIR / "flight_log.txt"
 
 # Ensure output directory exists before configuring logging
@@ -72,13 +71,14 @@ def get_unique_basename(outdir: Path, ts: str) -> str:
     """
     counter = 1
     while True:
+        # Notice we are now checking for .h264 instead of .avi
         name = f"flight_cam_{ts}_run{counter:03d}"
-        if not (outdir / f"{name}_raw.avi").exists() and not (outdir / f"{name}.avi").exists():
+        if not (outdir / f"{name}_raw.h264").exists():
             return name
         counter += 1
 
 def main() -> int:
-    logging.info("=== INITIALIZING FLIGHT CAMERA SCRIPT ===")
+    logging.info("=== INITIALIZING RAW FLIGHT CAMERA SCRIPT ===")
     check_disk_space(OUTDIR)
 
     # Start Countdown
@@ -90,18 +90,17 @@ def main() -> int:
     ts = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
     name_base = get_unique_basename(OUTDIR, ts)
 
-    raw = OUTDIR / f"{name_base}_raw.avi" # The actual data captured
-    fixed = OUTDIR / f"{name_base}.avi"   # The playable version after remuxing
-    pts = OUTDIR / f"{name_base}.pts"     # Presentation Time Stamps for recovery
+    raw = OUTDIR / f"{name_base}_raw.h264" # The actual raw data captured
+    pts = OUTDIR / f"{name_base}.pts"      # Presentation Time Stamps for recovery
 
     logging.info(f"Recording for {REC_DURATION_MS/1000}s. Outputting to: {raw}")
 
     try:
         # Capture Video
+        # Removed quality parameter and changed codec to h264
         run([
             "rpicam-vid", "-n",
-            "--codec", "mjpeg",
-            "--quality", str(QUALITY),
+            "--codec", "h264",
             "--width", str(WIDTH),
             "--height", str(HEIGHT),
             "--framerate", str(FPS),
@@ -110,22 +109,10 @@ def main() -> int:
             "-o", str(raw),
         ], ignore_fail=True)
 
-        # Force write to SD card
+        # Force write to SD card immediately after recording finishes
         logging.info("Syncing raw video to SD card...")
         run(["sync"])
         time.sleep(1)
-
-        # Remuxing to rebuild AVI index
-        if raw.exists() and raw.stat().st_size > 0:
-            logging.info("Remuxing to rebuild AVI index...")
-            try:
-                run(["ffmpeg", "-y", "-v", "warning", "-stats", "-i", str(raw), "-c", "copy", str(fixed)])
-            except subprocess.CalledProcessError:
-                logging.warning("Copy remux failed; falling back to re-encode...")
-                run(["ffmpeg", "-y", "-v", "warning", "-i", str(raw), "-r", str(FPS), "-c:v", "mjpeg", "-q:v", "2", str(fixed)])
-        else:
-            logging.error(f"Raw file {raw} was not created or is empty.")
-            return 1
 
     finally:
         # Final sync to protect the SD card data before power-off
@@ -133,7 +120,7 @@ def main() -> int:
         run(["sync"])
 
     logging.info("Script completed successfully.")
-    logging.info(f"Files kept in {OUTDIR}: {raw.name} & {fixed.name}")
+    logging.info(f"File kept in {OUTDIR}: {raw.name}")
 
     # Automatic Shutdown
     if SHUTDOWN_AT_END:

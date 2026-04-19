@@ -19,8 +19,8 @@ FPS = 30
 WIDTH = 1920
 HEIGHT = 1080
 QUALITY = 60
-REC_DURATION_MS = 30000    # Recording length in milliseconds (e.g., 30000 = 30 seconds)
-START_DELAY_SEC = 10       # Countdown delay in seconds before recording starts
+REC_DURATION_MS = 320000    # Recording length in milliseconds (e.g., 30000 = 30 seconds)
+START_DELAY_SEC = 120       # Countdown delay in seconds before recording starts
 SHUTDOWN_AT_END = False    # Set to True to turn off the Pi automatically after running
 
 OUTDIR = Path.home() / "Desktop/Videos"

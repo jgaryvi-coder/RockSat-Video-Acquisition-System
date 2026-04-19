@@ -23,7 +23,7 @@ REC_DURATION_MS = 30000    # Recording length in milliseconds (e.g., 30000 = 30 
 START_DELAY_SEC = 10       # Countdown delay in seconds before recording starts
 SHUTDOWN_AT_END = False    # Set to True to turn off the Pi automatically after running
 
-OUTDIR = Path.home() / "videos"
+OUTDIR = Path.home() / "Desktop/Videos"
 MIN_FREE_GB = 1.0          # Safety check to prevent SD card corruption
 LOG_FILE = OUTDIR / "flight_log.txt"
 
